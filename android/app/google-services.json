@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "418435556200",
+    "project_id": "mae-assignment-16065",
+    "storage_bucket": "mae-assignment-16065.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418435556200:android:8514ed8b17576ee5d52cdd",
+        "android_client_info": {
+          "package_name": "com.example.moneymate"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "418435556200-skkoobaefph7u3gcg73bkjf0qgl2k9mf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.moneymate",
+            "certificate_hash": "59e3de2413dccb1726eab01fd0849fd841d18467"
+          }
+        },
+        {
+          "client_id": "418435556200-28e3clhkdd5vc09dduganidc9ainh52a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfNr6OMRoCu53tcWwrYruy5pDkjc1KdFs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "418435556200-28e3clhkdd5vc09dduganidc9ainh52a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "418435556200-kvbm6h6cboqufq5tm7r2h4oapojdghf3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.moneymate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418435556200:android:cd19bcba694de3fdd52cdd",
+        "android_client_info": {
+          "package_name": "com.moneymate.assignment"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "418435556200-v3i4hpvgkdn7lit8gphlu6bu8gnr4rhl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moneymate.assignment",
+            "certificate_hash": "59e3de2413dccb1726eab01fd0849fd841d18467"
+          }
+        },
+        {
+          "client_id": "418435556200-28e3clhkdd5vc09dduganidc9ainh52a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfNr6OMRoCu53tcWwrYruy5pDkjc1KdFs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "418435556200-28e3clhkdd5vc09dduganidc9ainh52a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "418435556200-kvbm6h6cboqufq5tm7r2h4oapojdghf3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.moneymate"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
