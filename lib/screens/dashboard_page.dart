@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:month_picker_dialog/month_picker_dialog.dart';
 
 class DashboardPage extends StatefulWidget {
   @override
@@ -13,9 +14,10 @@ class _DashboardPageState extends State<DashboardPage> {
   double budget = 0.0;
   String _searchQuery = '';
   bool _searchTriggered = false;
-  String currency = 'RM'; 
+  String currency = 'RM';
 
   final TextEditingController _searchController = TextEditingController();
+  DateTime _selectedMonth = DateTime.now(); // New: to hold selected month
 
   @override
   void initState() {
@@ -27,10 +29,14 @@ class _DashboardPageState extends State<DashboardPage> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       final data = doc.data();
 
-      final nameFromFirestore = (doc.exists && data != null && data['displayName'] != null)
+      final nameFromFirestore =
+          (doc.exists && data != null && data['displayName'] != null)
           ? data['displayName'] as String
           : null;
 
@@ -39,8 +45,23 @@ class _DashboardPageState extends State<DashboardPage> {
             ? nameFromFirestore
             : user.displayName ?? 'User';
         budget = (data?['monthlyBudget'] ?? 0).toDouble();
-        currency = data?['defaultCurrency'] ?? 'RM'; // Load defaultCurrency
+        currency = data?['defaultCurrency'] ?? 'RM';
         isLoading = false;
+      });
+    }
+  }
+
+  void _pickMonth(BuildContext context) async {
+    final picked = await showMonthPicker(
+      context: context,
+      initialDate: _selectedMonth,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedMonth = picked;
       });
     }
   }
@@ -53,9 +74,12 @@ class _DashboardPageState extends State<DashboardPage> {
       return Scaffold(body: Center(child: Text('User not logged in')));
     }
 
-    final now = DateTime.now();
-    final firstOfMonth = DateTime(now.year, now.month, 1);
-    final nextMonth = DateTime(now.year, now.month + 1, 1);
+    final firstOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final nextMonth = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+      1,
+    );
 
     final transactionsRef = FirebaseFirestore.instance
         .collection('users')
@@ -81,16 +105,15 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 final allTransactions = snapshot.data!.docs;
 
-                // Apply search filter only if triggered
                 final transactions = _searchTriggered && _searchQuery.isNotEmpty
                     ? allTransactions.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
-                        final title = data['title']?.toString().toLowerCase() ?? '';
+                        final title =
+                            data['title']?.toString().toLowerCase() ?? '';
                         return title.contains(_searchQuery.toLowerCase());
                       }).toList()
                     : allTransactions;
 
-                // Always calculate totalExpense from all transactions
                 double totalExpense = 0.0;
                 for (var doc in allTransactions) {
                   final data = doc.data() as Map<String, dynamic>;
@@ -107,20 +130,40 @@ class _DashboardPageState extends State<DashboardPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 32, 16, 8),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search transactions...',
-                          border: OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.search),
-                            onPressed: () {
-                              setState(() {
-                                _searchQuery = _searchController.text;
-                                _searchTriggered = true;
-                              });
-                            },
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search transactions...',
+                                border: OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: Icon(Icons.search),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchQuery = _searchController.text;
+                                      _searchTriggered = true;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
                           ),
+                          IconButton(
+                            icon: Icon(Icons.calendar_today),
+                            onPressed: () => _pickMonth(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        'Month: ${_selectedMonth.month.toString().padLeft(2, '0')}/${_selectedMonth.year}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -128,7 +171,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Text(
                         'Welcome, $displayName!',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -147,7 +193,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
                       child: Divider(thickness: 1.5, color: Colors.grey),
                     ),
                     Expanded(
@@ -159,8 +208,13 @@ class _DashboardPageState extends State<DashboardPage> {
                                 final doc = transactions[index];
                                 final data = doc.data() as Map<String, dynamic>;
                                 final title = data['title'] ?? 'Untitled';
-                                final amount = (data['amount'] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00';
-                                final date = (data['date'] as Timestamp).toDate();
+                                final amount =
+                                    (data['amount'] as num?)
+                                        ?.toDouble()
+                                        .toStringAsFixed(2) ??
+                                    '0.00';
+                                final date = (data['date'] as Timestamp)
+                                    .toDate();
                                 final type = data['type'] ?? 'unknown';
 
                                 return Dismissible(
@@ -170,17 +224,30 @@ class _DashboardPageState extends State<DashboardPage> {
                                     color: Colors.red,
                                     alignment: Alignment.centerRight,
                                     padding: EdgeInsets.only(right: 20),
-                                    child: Icon(Icons.delete, color: Colors.white),
+                                    child: Icon(
+                                      Icons.delete,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                   confirmDismiss: (direction) async {
                                     return await showDialog(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         title: Text('Delete Transaction'),
-                                        content: Text('Are you sure you want to delete this transaction?'),
+                                        content: Text(
+                                          'Are you sure you want to delete this transaction?',
+                                        ),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text('Cancel')),
-                                          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text('Delete')),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(false),
+                                            child: Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(true),
+                                            child: Text('Delete'),
+                                          ),
                                         ],
                                       ),
                                     );
@@ -194,21 +261,31 @@ class _DashboardPageState extends State<DashboardPage> {
                                         .delete();
 
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Transaction deleted')),
+                                      SnackBar(
+                                        content: Text('Transaction deleted'),
+                                      ),
                                     );
                                   },
                                   child: ListTile(
                                     leading: Icon(
-                                      type.toLowerCase() == 'expense' ? Icons.arrow_downward : Icons.arrow_upward,
-                                      color: type.toLowerCase() == 'expense' ? Colors.red : Colors.green,
+                                      type.toLowerCase() == 'expense'
+                                          ? Icons.arrow_downward
+                                          : Icons.arrow_upward,
+                                      color: type.toLowerCase() == 'expense'
+                                          ? Colors.red
+                                          : Colors.green,
                                     ),
                                     title: Text(title),
-                                    subtitle: Text('${type.toUpperCase()} • ${date.toLocal().toString().split(' ')[0]}'),
+                                    subtitle: Text(
+                                      '${type.toUpperCase()} • ${date.toLocal().toString().split(' ')[0]}',
+                                    ),
                                     trailing: Text(
                                       '$currency $amount',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: type.toLowerCase() == 'expense' ? Colors.red : Colors.green,
+                                        color: type.toLowerCase() == 'expense'
+                                            ? Colors.red
+                                            : Colors.green,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -219,7 +296,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ],
                 );
-
               },
             ),
     );
