@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -9,12 +10,22 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  String _selectedCountryCode = '+60';
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _error;
 
   Future<void> _register() async {
+    // Validate phone number
+    if (_phoneController.text.isEmpty || !_phoneController.text.trim().contains(RegExp(r'^\d{6,}$'))) {
+      setState(() {
+        _error = 'Enter a valid phone number';
+      });
+      return;
+    }
+
+    // Check passwords match
     if (_passwordController.text != _confirmPasswordController.text) {
       setState(() {
         _error = 'Passwords do not match';
@@ -23,18 +34,76 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Create user with email and password
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      await FirebaseAuth.instance.signOut();
-      Navigator.pushReplacementNamed(context, '/login');
+
+      final user = userCredential.user;
+      if (user != null) {
+        // Save user profile info to Firestore BEFORE sign out
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'displayName': _usernameController.text.trim(),
+          'defaultCurrency': 'MYR',
+          'monthlyBudget': 1000,
+          'darkMode': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'email': _emailController.text.trim(),
+          'phone': '$_selectedCountryCode${_phoneController.text.trim()}',
+          'userType': 'user',
+          'isPremium': false,
+          'assignedConsultant': null,
+        });
+
+        // Send email verification
+        await user.sendEmailVerification();
+
+        // Show a dialog asking user to verify email
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Text('Verify your email'),
+            content: Text(
+              'A verification link has been sent to ${user.email}. Please verify your email before continuing.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+
+        // Sign out immediately so user can't access app until verification
+        await FirebaseAuth.instance.signOut();
+
+        // Navigate back to login page or wherever you want
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     } catch (e) {
+      String message = 'Registration failed';
+      if (e is FirebaseAuthException) {
+        if (e.code == 'email-already-in-use') {
+          message = 'This email is already registered.';
+        } else if (e.code == 'weak-password') {
+          message = 'The password is too weak.';
+        } else if (e.code == 'invalid-email') {
+          message = 'The email format is invalid.';
+        }
+      }
+
       setState(() {
-        _error = e.toString();
+        _error = message;
       });
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +119,33 @@ class _RegisterPageState extends State<RegisterPage> {
                   Text(_error!, style: TextStyle(color: Colors.red)),
                 TextField(controller: _usernameController, decoration: InputDecoration(labelText: 'Username')),
                 TextField(controller: _emailController, decoration: InputDecoration(labelText: 'Email')),
-                TextField(controller: _phoneController, decoration: InputDecoration(labelText: 'Phone Number')),
+                Row(
+                  children: [
+                    Container(
+                      width: 100,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedCountryCode,
+                        decoration: InputDecoration(labelText: 'Code'),
+                        items: ['+60', '+1', '+44', '+91', '+81'].map((code) {
+                          return DropdownMenuItem(value: code, child: Text(code));
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCountryCode = value!;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(labelText: 'Phone Number'),
+                      ),
+                    ),
+                  ],
+                ),
                 TextField(controller: _passwordController, obscureText: true, decoration: InputDecoration(labelText: 'Password')),
                 TextField(controller: _confirmPasswordController, obscureText: true, decoration: InputDecoration(labelText: 'Confirm Password')),
                 SizedBox(height: 24), 

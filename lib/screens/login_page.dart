@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'landing_page.dart';  // Import your LandingPage
 
 class LoginPage extends StatefulWidget {
   @override
@@ -15,28 +16,33 @@ class _LoginPageState extends State<LoginPage> {
   String? _error;
 
   Future<void> _login() async {
-  final email = _emailController.text.trim();
-  final password = _passwordController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-  if (email.isEmpty || password.isEmpty) {
-    setState(() {
-      _error = 'Email and password must not be empty.';
-    });
-    return;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _error = 'Email and password must not be empty.';
+      });
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      // Navigate to LandingPage after login success
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LandingPage()),
+      );
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    }
   }
 
-  try {
-    await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    Navigator.pushReplacementNamed(context, '/dashboard');
-  } catch (e) {
-    setState(() {
-      _error = e.toString();
-    });
-  }
-  }
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -49,7 +55,11 @@ class _LoginPageState extends State<LoginPage> {
         idToken: googleAuth.idToken,
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      // Navigate to LandingPage after Google login success
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LandingPage()),
+      );
     } catch (e) {
       setState(() {
         _error = 'Google sign-in failed: $e';
@@ -58,7 +68,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showForgotPasswordDialog() {
-  final TextEditingController _resetEmailController = TextEditingController();
+    final TextEditingController _resetEmailController = TextEditingController();
 
     showDialog(
       context: context,
@@ -98,8 +108,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,23 +119,22 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 Image.asset(
                   'lib/assets/moneymate_logo.png',
-                  width: 240, 
+                  width: 240,
                   height: 240,
                 ),
-                //SizedBox(height: 24), 
                 Text(
                   'Login',
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 if (_error != null)
                   Text(_error!, style: TextStyle(color: Colors.red)),
-                SizedBox(height: 24), 
+                SizedBox(height: 24),
                 TextField(controller: _emailController, decoration: InputDecoration(labelText: 'Email')),
                 TextField(controller: _passwordController, obscureText: true, decoration: InputDecoration(labelText: 'Password')),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: _showForgotPasswordDialog, // Trigger the dialog
+                    onPressed: _showForgotPasswordDialog,
                     child: Text('Forgot Password?'),
                   ),
                 ),
@@ -136,9 +143,12 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text("Don't have an account? "),
-                    TextButton(onPressed: () {
-                      Navigator.pushNamed(context, '/register');
-                    }, child: Text("Register"))
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/register');
+                      },
+                      child: Text("Register"),
+                    ),
                   ],
                 ),
                 SizedBox(height: 20),
@@ -147,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromARGB(255, 155, 153, 190),
                     padding: EdgeInsets.all(12),
-                    minimumSize: Size(48, 48), // size of button
+                    minimumSize: Size(48, 48),
                   ),
                   child: FaIcon(
                     FontAwesomeIcons.google,

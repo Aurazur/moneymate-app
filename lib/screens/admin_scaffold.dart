@@ -1,33 +1,27 @@
 import 'package:flutter/material.dart';
-import 'profile_page.dart';
-import 'statistics_page.dart';
-import 'addnew_page.dart';
-import 'premium_page.dart';
-import 'dashboard_page.dart';
+import 'admin_main_page.dart';        // Admin dashboard page
+import 'admin_addnew.dart';          // Your AddUserPage here renamed as AdminAddNewPage
+import 'admin_profile.dart';         // AdminProfilePage
 
-class MainScaffold extends StatefulWidget {
-  const MainScaffold({Key? key}) : super(key: key);
+class AdminScaffold extends StatefulWidget {
+  const AdminScaffold({Key? key}) : super(key: key);
 
   @override
-  _MainScaffoldState createState() => _MainScaffoldState();
+  _AdminScaffoldState createState() => _AdminScaffoldState();
 }
 
-class _MainScaffoldState extends State<MainScaffold> {
+class _AdminScaffoldState extends State<AdminScaffold> {
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
-    DashboardPage(),
-    StatisticsPage(),
-    AddNewPage(),
-    PremiumPage(),
-    ProfilePage(),
+    AdminMainPage(),
+    AdminAddNewPage(),
+    AdminProfilePage(),
   ];
 
   static const List<String> _pageTitles = [
     'Dashboard',
-    'Statistics',
-    'Add Transaction',
-    'Premium',
+    'Add New User',
     'Profile',
   ];
 
@@ -50,21 +44,19 @@ class _MainScaffoldState extends State<MainScaffold> {
                 'lib/assets/moneymate_logo.png',
                 width: 64,
                 height: 64,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(Icons.error);
-                },
+                errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
               ),
             ),
             Text(
               _pageTitles[_selectedIndex],
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: const Color.fromARGB(255, 0, 0, 0),
+                    color: Colors.black,
                     fontWeight: FontWeight.bold,
                   ),
             ),
           ],
         ),
-        backgroundColor: const Color.fromARGB(255, 232, 240, 239), // Optional: adjust to fit your theme
+        backgroundColor: const Color.fromARGB(255, 232, 240, 239),
         elevation: 0,
       ),
       body: _pages[_selectedIndex],
@@ -78,16 +70,8 @@ class _MainScaffoldState extends State<MainScaffold> {
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart),
-            label: 'Statistics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Add New',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Premium',
+            icon: Icon(Icons.person_add),
+            label: 'Add User',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
