@@ -10,18 +10,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _displayNameController = TextEditingController();
-  final _monthlyBudgetController = TextEditingController();
-  final _phoneNumberController = TextEditingController();
-
-  final _formKey = GlobalKey<FormState>();
-
-  String _selectedCurrency = 'MYR';
-  bool _darkMode = false;
-
-  // Country codes list
-  final List<String> _countryCodes = ['+60', '+1', '+44', '+91', '+81'];
+  // User profile data
+  String _displayName = '';
+  String _phone = '';
   String _selectedCountryCode = '+60';
+  String _selectedCurrency = 'MYR';
+  String _monthlyBudget = '';
+
+  final List<String> _countryCodes = ['+60', '+1', '+44', '+91', '+81'];
 
   @override
   void initState() {
@@ -34,41 +30,37 @@ class _ProfilePageState extends State<ProfilePage> {
     if (user == null) return;
 
     try {
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (!mounted) return;
 
       if (doc.exists) {
         final data = doc.data()!;
         setState(() {
-          _displayNameController.text = data['displayName'] ?? '';
+          _displayName = data['displayName'] ?? '';
           _selectedCurrency = data['defaultCurrency'] ?? 'MYR';
-          _monthlyBudgetController.text = (data['monthlyBudget'] ?? '').toString();
-          _darkMode = data['darkMode'] ?? false;
+          _monthlyBudget = (data['monthlyBudget'] ?? '').toString();
 
           final fullPhone = data['phone'] ?? '';
           if (fullPhone.isNotEmpty) {
-            // Detect country code from list or fallback
             final matchedCode = _countryCodes.firstWhere(
               (code) => fullPhone.startsWith(code),
               orElse: () => '+60',
             );
             _selectedCountryCode = matchedCode;
-            _phoneNumberController.text = fullPhone.substring(matchedCode.length);
+            _phone = fullPhone.substring(matchedCode.length);
           } else {
             _selectedCountryCode = '+60';
-            _phoneNumberController.text = '';
+            _phone = '';
           }
         });
       } else {
         setState(() {
-          _displayNameController.text = user.displayName ?? '';
+          _displayName = user.displayName ?? '';
           _selectedCurrency = 'MYR';
-          _monthlyBudgetController.text = '2000';
-          _darkMode = false;
+          _monthlyBudget = '2000';
           _selectedCountryCode = '+60';
-          _phoneNumberController.text = '';
+          _phone = '';
         });
       }
     } catch (e) {
@@ -79,27 +71,47 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      // If form is invalid, do not save
-      return;
-    }
+  Future<void> _updateLocalProfile({
+    required String displayName,
+    required String phone,
+    required String countryCode,
+    required String currency,
+    required String monthlyBudget,
+  }) async {
+    setState(() {
+      _displayName = displayName;
+      _phone = phone;
+      _selectedCountryCode = countryCode;
+      _selectedCurrency = currency;
+      _monthlyBudget = monthlyBudget;
+    });
+  }
 
+  Future<void> _saveProfile(String displayName, String countryCode, String phone,
+      String currency, String monthlyBudget) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final fullPhone = '$_selectedCountryCode${_phoneNumberController.text.trim()}';
+    final fullPhone = '$countryCode${phone.trim()}';
 
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'displayName': _displayNameController.text,
-      'defaultCurrency': _selectedCurrency,
-      'monthlyBudget': int.tryParse(_monthlyBudgetController.text) ?? 0,
-      'darkMode': _darkMode,
+      'displayName': displayName,
+      'defaultCurrency': currency,
+      'monthlyBudget': int.tryParse(monthlyBudget) ?? 0,
       'phone': fullPhone,
     }, SetOptions(merge: true));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile saved successfully!')),
+    );
+
+    // Update the main page's local state
+    _updateLocalProfile(
+      displayName: displayName,
+      phone: phone,
+      countryCode: countryCode,
+      currency: currency,
+      monthlyBudget: monthlyBudget,
     );
   }
 
@@ -112,7 +124,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // First confirmation dialog
     final firstConfirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -128,12 +139,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (firstConfirm != true) return;
 
-    // Second confirmation dialog
     final secondConfirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Deletion'),
-        content: const Text('This is your last chance to cancel. Do you really want to delete your account?'),
+        content: const Text(
+            'This is your last chance to cancel. Do you really want to delete your account?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -148,18 +159,16 @@ class _ProfilePageState extends State<ProfilePage> {
     if (secondConfirm != true) return;
 
     try {
-      // Delete user document from Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
-
-      // Delete Firebase Auth user
       await user.delete();
 
-      // Redirect to landing/login page
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log out and log in again before deleting your account.')),
+          const SnackBar(
+              content:
+                  Text('Please log out and log in again before deleting your account.')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -173,140 +182,446 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  String? _validatePhoneNumber(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter your phone number';
-    }
-    final phone = value.trim();
-    final numericRegex = RegExp(r'^[0-9]+$');
-    if (!numericRegex.hasMatch(phone)) {
-      return 'Phone number must be digits only';
-    }
-    if (phone.length < 6) {
-      return 'Phone number is too short';
-    }
-    return null;
+  void _openEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Edit Profile'),
+            elevation: 0, // Remove AppBar shadow / grey bar
+            leading: BackButton(), // Back arrow automatically pops the screen
+          ),
+          body: Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: _EditProfileForm(
+              initialDisplayName: _displayName,
+              initialCountryCode: _selectedCountryCode,
+              initialPhone: _phone,
+              initialCurrency: _selectedCurrency,
+              initialMonthlyBudget: _monthlyBudget,
+              countryCodes: _countryCodes,
+              onSave: (displayName, countryCode, phone, currency, monthlyBudget) async {
+                await _saveProfile(displayName, countryCode, phone, currency, monthlyBudget);
+                Navigator.pop(context);
+              },
+              onCancel: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
+
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        controller: _displayNameController,
-                        decoration: const InputDecoration(labelText: 'Display Name'),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          // Country code dropdown (fixed width)
-                          Container(
-                            width: 100,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedCountryCode,
-                              decoration: InputDecoration(labelText: 'Code'),
-                              items: ['+60', '+1', '+44', '+91', '+81'].map((code) {
-                                return DropdownMenuItem(value: code, child: Text(code));
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedCountryCode = value!;
-                                });
-                              },
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          // Phone number input (flexible width)
-                          Expanded(
-                            child: TextFormField(
-                              controller: _phoneNumberController,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(labelText: 'Phone Number'),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter phone number';
-                                }
-                                if (!RegExp(r'^\d+$').hasMatch(value)) {
-                                  return 'Enter valid digits only';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      DropdownButtonFormField<String>(
-                        value: _selectedCurrency,
-                        decoration: const InputDecoration(labelText: 'Default Currency'),
-                        items: ['MYR', 'USD', 'EUR', 'SGD', 'JPY'].map((currency) {
-                          return DropdownMenuItem(value: currency, child: Text(currency));
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCurrency = value!;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      TextField(
-                        controller: _monthlyBudgetController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Monthly Budget'),
-                      ),
-                      const SizedBox(height: 20),
-                      SwitchListTile(
-                        title: const Text('Dark Mode'),
-                        value: _darkMode,
-                        onChanged: (val) {
-                          setState(() {
-                            _darkMode = val;
-                          });
-                        },
-                      ),
-                    ],
+        child: Column(
+          children: [
+            Text(
+              _displayName,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$_selectedCountryCode$_phone',
+              style: const TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.account_circle),
+                  label: const Text(
+                    'Account Settings',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    foregroundColor: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: _openEditProfile,
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.help),
+                  label: const Text(
+                    'Help & Support',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    foregroundColor: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HelpAndSupportPage()),
                   ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            ),
+
+          
+
+
+            const Spacer(),
+
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    foregroundColor: Colors.red,
+                  ),
+                  onPressed: () => _logout(context),
+                ),
+              ),
+            ),
+
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
+                  label: const Text(
+                    'Delete Account',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.redAccent),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    foregroundColor: Colors.redAccent,
+                  ),
+                  onPressed: () => _deleteAccount(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class HelpAndSupportPage extends StatelessWidget {
+  const HelpAndSupportPage({Key? key}) : super(key: key);
+
+  final String appVersion = '1.0.0'; // Replace with your actual app version
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Help & Support'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Icon(Icons.contact_support, color: Colors.blue),
+                title: const Text(
+                  'Contact Support',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: const Text('moneymatehelpline@gmail.com\n+60 16 298 2609'),
+                isThreeLine: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.green),
+                title: const Text(
+                  'App Version',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Text(appVersion),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditProfileForm extends StatefulWidget {
+  final String initialDisplayName;
+  final String initialCountryCode;
+  final String initialPhone;
+  final String initialCurrency;
+  final String initialMonthlyBudget;
+  final List<String> countryCodes;
+  final Future<void> Function(String, String, String, String, String) onSave;
+  final VoidCallback onCancel;
+
+  const _EditProfileForm({
+    Key? key,
+    required this.initialDisplayName,
+    required this.initialCountryCode,
+    required this.initialPhone,
+    required this.initialCurrency,
+    required this.initialMonthlyBudget,
+    required this.countryCodes,
+    required this.onSave,
+    required this.onCancel,
+  }) : super(key: key);
+
+  @override
+  State<_EditProfileForm> createState() => _EditProfileFormState();
+}
+
+class _EditProfileFormState extends State<_EditProfileForm> {
+  late TextEditingController _displayNameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _monthlyBudgetController;
+  late String _selectedCountryCode;
+  late String _selectedCurrency;
+
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _displayNameController = TextEditingController(text: widget.initialDisplayName);
+    _phoneController = TextEditingController(text: widget.initialPhone);
+    _monthlyBudgetController = TextEditingController(text: widget.initialMonthlyBudget);
+    _selectedCountryCode = widget.initialCountryCode;
+    _selectedCurrency = widget.initialCurrency;
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _phoneController.dispose();
+    _monthlyBudgetController.dispose();
+    super.dispose();
+  }
+
+  String? _validatePhone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your phone number';
+    }
+    if (!RegExp(r'^\d+$').hasMatch(value)) {
+      return 'Phone number must be digits only';
+    }
+    return null;
+  }
+
+  String? _validateDisplayName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter a display name';
+    }
+    return null;
+  }
+
+  String? _validateMonthlyBudget(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter a monthly budget';
+    }
+    if (int.tryParse(value) == null) {
+      return 'Monthly budget must be a number';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Modal top bar with handle and close button
+            
+            const SizedBox(height: 12),
+            Form(
+              key: _formKey,
+              child: Column(
                 children: [
-                  ElevatedButton(
-                    onPressed: _saveProfile,
-                    child: const Text('Save Profile'),
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    onPressed: () => _logout(context),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                  // Display Name
+                  TextFormField(
+                    controller: _displayNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Display Name',
+                      border: OutlineInputBorder(),
                     ),
+                    validator: _validateDisplayName,
                   ),
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    onPressed: () => _deleteAccount(context),
-                    icon: const Icon(Icons.delete_forever),
-                    label: const Text('Delete Account'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+                  const SizedBox(height: 16),
+
+                  // Phone Number with Country Code Picker
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _selectedCountryCode,
+                          underline: const SizedBox.shrink(),
+                          items: widget.countryCodes
+                              .map(
+                                (code) => DropdownMenuItem<String>(
+                                  value: code,
+                                  child: Text(code),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedCountryCode = value;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _phoneController,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.phone,
+                          validator: _validatePhone,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Default Currency
+                  DropdownButtonFormField<String>(
+                    value: _selectedCurrency,
+                    decoration: const InputDecoration(
+                      labelText: 'Default Currency',
+                      border: OutlineInputBorder(),
                     ),
+                    items: <String>['MYR', 'USD', 'EUR', 'JPY', 'GBP']
+                        .map((currency) => DropdownMenuItem<String>(
+                              value: currency,
+                              child: Text(currency),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedCurrency = value;
+                        });
+                      }
+                    },
                   ),
+                  const SizedBox(height: 16),
+
+                  // Monthly Budget
+                  TextFormField(
+                    controller: _monthlyBudgetController,
+                    decoration: const InputDecoration(
+                      labelText: 'Monthly Budget',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: _validateMonthlyBudget,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Buttons: Save and Cancel
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: widget.onCancel,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              widget.onSave(
+                                _displayNameController.text.trim(),
+                                _selectedCountryCode,
+                                _phoneController.text.trim(),
+                                _selectedCurrency,
+                                _monthlyBudgetController.text.trim(),
+                              );
+                            }
+                          },
+                          child: const Text('Save Profile'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
