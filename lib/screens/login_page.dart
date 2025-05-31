@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 import 'landing_page.dart';  // Import your LandingPage
 
@@ -46,26 +48,48 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        return; // User canceled
-      }
+      if (googleUser == null) return; // User canceled
+
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      // Navigate to LandingPage after Google login success
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LandingPage()),
-      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final userDoc = await userDocRef.get();
+
+        if (!userDoc.exists) {
+          await userDocRef.set({
+            'displayName': '',
+            'defaultCurrency': 'MYR',
+            'monthlyBudget': 1000,
+            'darkMode': false,
+            'createdAt': FieldValue.serverTimestamp(),
+            'email': user.email ?? '',
+            'phone': '',
+            'userType': 'user',
+            'isPremium': false,
+            'assignedConsultant': null,
+          });
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LandingPage()),
+        );
+      }
     } catch (e) {
       setState(() {
         _error = 'Google sign-in failed: $e';
       });
     }
   }
+
 
   void _showForgotPasswordDialog() {
     final TextEditingController _resetEmailController = TextEditingController();

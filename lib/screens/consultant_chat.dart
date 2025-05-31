@@ -38,13 +38,15 @@ class ConsultantChatPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Consultant Chat'),
+        title: const Text('Consultees'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('users')
-            .where('assignedConsultant', isEqualTo: currentConsultantEmail)
-            .snapshots(),
+          .collection('users')
+          .where('assignedConsultant', isEqualTo: currentConsultantEmail)
+          .where('isPremium', isEqualTo: true)
+          .snapshots(),
+
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Error loading users'));
