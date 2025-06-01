@@ -33,7 +33,6 @@ class _LoginPageState extends State<LoginPage> {
         email: email,
         password: password,
       );
-      // Navigate to LandingPage after login success
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => LandingPage()),
