@@ -2,14 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class PremiumPage extends StatelessWidget {
+class PremiumPage extends StatefulWidget {
   const PremiumPage({Key? key}) : super(key: key);
+
+  @override
+  State<PremiumPage> createState() => _PremiumPageState();
+}
+
+class _PremiumPageState extends State<PremiumPage> {
+  late Future<Map<String, dynamic>?> _userDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userDataFuture = _getUserData();
+  }
 
   Future<Map<String, dynamic>?> _getUserData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     return userDoc.data();
   }
 
@@ -23,10 +35,52 @@ class PremiumPage extends StatelessWidget {
     return query.docs.first.data();
   }
 
+  Future<void> _simulatePremiumPurchase() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    await Future.delayed(const Duration(seconds: 2)); 
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({'isPremium': true});
+    }
+
+    Navigator.of(context).pop(); 
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your purchase was successful!')),
+      );
+      setState(() {
+        _userDataFuture = _getUserData(); 
+      });
+    }
+  }
+
+  Future<void> _cancelSubscription() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({'isPremium': false});
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('We hope to see you again soon!')),
+      );
+      setState(() {
+        _userDataFuture = _getUserData(); 
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _getUserData(),
+      future: _userDataFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(child: Text('Error loading user data'));
@@ -85,9 +139,7 @@ class PremiumPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(email, style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 8),
-                  Text(phone,
-                      style:
-                          const TextStyle(fontSize: 16, color: Colors.grey)),
+                  Text(phone, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                 ],
               ),
             );
@@ -103,15 +155,11 @@ class PremiumPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.workspace_premium_rounded,
-              size: 80, color: Colors.amber.shade700),
+          Icon(Icons.workspace_premium_rounded, size: 80, color: Colors.amber.shade700),
           const SizedBox(height: 20),
           Text(
             "Don't have MoneyMate Premium?",
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -125,17 +173,10 @@ class PremiumPage extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.amber.shade700,
               foregroundColor: Colors.black,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () {
-              // premium purchase stuff
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Premium purchase coming soon!')),
-              );
-            },
+            onPressed: _simulatePremiumPurchase,
             child: const Text('Buy Premium'),
           ),
           const SizedBox(height: 20),
@@ -155,8 +196,7 @@ class PremiumPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.workspace_premium_rounded,
-              size: 80, color: Colors.amber.shade700),
+          Icon(Icons.workspace_premium_rounded, size: 80, color: Colors.amber.shade700),
           const SizedBox(height: 20),
           const Text(
             "Thanks for purchasing MoneyMate Premium!",
@@ -181,13 +221,10 @@ class PremiumPage extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           TextButton(
-            onPressed: () {
-              // cancel subscription stuff
-            },
+            onPressed: _cancelSubscription,
             child: const Text(
               "Cancel Subscription",
-              style: TextStyle(
-                  color: Colors.red, fontSize: 16, fontWeight: FontWeight.w500),
+              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w500),
             ),
           )
         ],
