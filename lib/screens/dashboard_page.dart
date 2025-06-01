@@ -97,7 +97,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 }
 
                 List<String> sortedMonths = allMonths.toList()
-                  ..sort((a, b) => _compareMonthYear(b, a)); // Descending
+                  ..sort((a, b) => _compareMonthYear(b, a));
 
                 final mostRecentMonth = sortedMonths.isNotEmpty ? sortedMonths.first : null;
 

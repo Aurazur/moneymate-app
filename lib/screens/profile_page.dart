@@ -390,6 +390,20 @@ class HelpAndSupportPage extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.info_outline, color: Colors.green),
                 title: const Text(
+                  'Credits',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Text('Cameron De-Sheng Stuart\nMax Saw Wen Jun\nAmal Sudeer'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            //const Spacer(),
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.green),
+                title: const Text(
                   'App Version',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),

@@ -64,7 +64,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             ),
           ],
         ),
-        backgroundColor: const Color.fromARGB(255, 232, 240, 239), // Optional: adjust to fit your theme
+        backgroundColor: const Color.fromARGB(255, 232, 240, 239),
         elevation: 0,
       ),
       body: _pages[_selectedIndex],

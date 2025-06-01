@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class StatisticsPage extends StatefulWidget {
@@ -8,14 +10,15 @@ class StatisticsPage extends StatefulWidget {
 }
 
 class _StatisticsPageState extends State<StatisticsPage> {
-  late List<FinancialData> _chartData;
+  List<FinancialData> _chartData = [];
   late TooltipBehavior _tooltipBehavior;
   final List<String> _filterOptions = [
+    'Last Month',
     'Last 3 Months',
     'Last 6 Months',
     'This Year',
-    'Custom Range'
   ];
+  String _selectedFilter = 'Last 3 Months';
 
   @override
   void initState() {
@@ -24,33 +27,84 @@ class _StatisticsPageState extends State<StatisticsPage> {
     _loadChartData();
   }
 
-  void _loadChartData() {
-    // Sample data - replace with your actual data
+  void _loadChartData() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final uid = currentUser.uid;
     final now = DateTime.now();
-    final dateFormat = DateFormat('MMM yyyy');
-    
+
+    final transactionsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('transactions')
+        .get();
+
+    Map<String, double> incomeByMonth = {};
+    Map<String, double> expenseByMonth = {};
+
+    for (final doc in transactionsSnapshot.docs) {
+      final data = doc.data();
+      final type = data['type'];
+      final amount = (data['amount'] ?? 0).toDouble();
+      final timestamp = data['date'];
+      final date = (timestamp is Timestamp) ? timestamp.toDate() : DateTime.now();
+      final monthKey = DateFormat('MMM yyyy').format(date);
+
+      if (type == 'Income') {
+        incomeByMonth[monthKey] = (incomeByMonth[monthKey] ?? 0) + amount;
+      } else if (type == 'Expense') {
+        expenseByMonth[monthKey] = (expenseByMonth[monthKey] ?? 0) + amount;
+      }
+    }
+
+    final allMonths = {...incomeByMonth.keys, ...expenseByMonth.keys}.toList()
+      ..sort((a, b) => DateFormat('MMM yyyy')
+          .parse(b)
+          .compareTo(DateFormat('MMM yyyy').parse(a))); // latest first
+
+    final chartData = allMonths.map((month) {
+      return FinancialData(
+        month,
+        incomeByMonth[month] ?? 0,
+        expenseByMonth[month] ?? 0,
+      );
+    }).toList();
+
     setState(() {
-      _chartData = [
-        FinancialData(dateFormat.format(DateTime(now.year, now.month - 5)), 3000, 2500, 5500),
-        FinancialData(dateFormat.format(DateTime(now.year, now.month - 4)), 3200, 2700, 5900),
-        FinancialData(dateFormat.format(DateTime(now.year, now.month - 3)), 3500, 3000, 6500),
-        FinancialData(dateFormat.format(DateTime(now.year, now.month - 2)), 4000, 3200, 7200),
-        FinancialData(dateFormat.format(DateTime(now.year, now.month - 1)), 3800, 3100, 6900),
-        FinancialData(dateFormat.format(now), 4200, 3500, 7700),
-      ];
+      _chartData = chartData;
     });
+  }
+
+  List<FinancialData> _filterChartData(String filter) {
+    final now = DateTime.now();
+    int months = switch (filter) {
+      'Last Month' => 1,
+      'Last 3 Months' => 3,
+      'Last 6 Months' => 6,
+      'This Year' => 12,
+      _ => 3,
+    };
+    final cutoff = DateTime(now.year, now.month - months + 1);
+    return _chartData.where((data) {
+      final date = DateFormat('MMM yyyy').parse(data.month);
+      return date.isAfter(cutoff.subtract(Duration(days: 1)));
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final filteredData = _filterChartData(_selectedFilter);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Financial Statistics'),
         actions: [
           PopupMenuButton<String>(
+            initialValue: _selectedFilter,
             onSelected: (value) {
               setState(() {
-                // Implement actual filtering logic here
+                _selectedFilter = value;
               });
             },
             itemBuilder: (BuildContext context) {
@@ -68,19 +122,6 @@ class _StatisticsPageState extends State<StatisticsPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Summary Cards
-            Row(
-              children: [
-                _buildSummaryCard('Total Income', '\$15,700', Colors.green),
-                SizedBox(width: 10),
-                _buildSummaryCard('Total Expenses', '\$12,300', Colors.red),
-                SizedBox(width: 10),
-                _buildSummaryCard('Net Savings', '\$3,400', Colors.blue),
-              ],
-            ),
-            SizedBox(height: 20),
-            
-            // Chart
             Expanded(
               child: Card(
                 elevation: 4,
@@ -95,37 +136,27 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     tooltipBehavior: _tooltipBehavior,
                     primaryXAxis: CategoryAxis(),
                     series: <CartesianSeries<FinancialData, String>>[
-  ColumnSeries<FinancialData, String>(
-    name: 'Income',
-    dataSource: _chartData,
-    xValueMapper: (FinancialData data, _) => data.month,
-    yValueMapper: (FinancialData data, _) => data.income,
-    color: Colors.green[400],
-  ),
-  ColumnSeries<FinancialData, String>(
-    name: 'Expenses',
-    dataSource: _chartData,
-    xValueMapper: (FinancialData data, _) => data.month,
-    yValueMapper: (FinancialData data, _) => data.expenses,
-    color: Colors.red[400],
-  ),
-  LineSeries<FinancialData, String>(
-    name: 'Total Budget',
-    dataSource: _chartData,
-    xValueMapper: (FinancialData data, _) => data.month,
-    yValueMapper: (FinancialData data, _) => data.budget,
-    color: Colors.blue,
-    markerSettings: MarkerSettings(isVisible: true),
-  ),
-],
+                      ColumnSeries<FinancialData, String>(
+                        name: 'Income',
+                        dataSource: filteredData,
+                        xValueMapper: (FinancialData data, _) => data.month,
+                        yValueMapper: (FinancialData data, _) => data.income,
+                        color: Colors.green[400],
+                      ),
+                      ColumnSeries<FinancialData, String>(
+                        name: 'Expenses',
+                        dataSource: filteredData,
+                        xValueMapper: (FinancialData data, _) => data.month,
+                        yValueMapper: (FinancialData data, _) => data.expenses,
+                        color: Colors.red[400],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
             SizedBox(height: 20),
-            
-            // Monthly Breakdown
-            Text('Monthly Breakdown', 
+            Text('Monthly Breakdown',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(height: 10),
             Expanded(
@@ -139,17 +170,17 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Income: \$${data.income}'),
-                          Text('Expenses: \$${data.expenses}'),
-                          Text('Budget: \$${data.budget}'),
+                          Text('Income: \$${data.income.toStringAsFixed(2)}'),
+                          Text('Expenses: \$${data.expenses.toStringAsFixed(2)}'),
                         ],
                       ),
                       trailing: Chip(
-                        label: Text('\$${data.income - data.expenses}',
-                            style: TextStyle(color: Colors.white)),
-                        backgroundColor: (data.income - data.expenses) >= 0 
-                            ? Colors.green 
-                            : Colors.red,
+                        label: Text(
+                          '\$${(data.income - data.expenses).toStringAsFixed(2)}',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        backgroundColor:
+                            (data.income - data.expenses) >= 0 ? Colors.green : Colors.red,
                       ),
                     ),
                   );
@@ -161,32 +192,12 @@ class _StatisticsPageState extends State<StatisticsPage> {
       ),
     );
   }
-
-  Widget _buildSummaryCard(String title, String value, Color color) {
-    return Expanded(
-      child: Card(
-        color: color.withOpacity(0.1),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(color: color, fontSize: 12)),
-              SizedBox(height: 5),
-              Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class FinancialData {
   final String month;
   final double income;
   final double expenses;
-  final double budget;
 
-  FinancialData(this.month, this.income, this.expenses, this.budget);
+  FinancialData(this.month, this.income, this.expenses);
 }
