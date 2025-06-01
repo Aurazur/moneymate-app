@@ -1,6 +1,6 @@
 # moneymate
 
-A new Flutter project.
+MoneyMate, a mobile application created by cameron, max and amal for Asia Pacific University's Mobile Application Engineering course
 
 ## Getting Started
 
