@@ -41,6 +41,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         titleSpacing: 0,
         title: Row(
           children: [

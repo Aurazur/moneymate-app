@@ -14,6 +14,7 @@ class ConsultantMainPage extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('users')
             .where('assignedConsultant', isEqualTo: consultantEmail)
+            .where('isPremium', isEqualTo: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {

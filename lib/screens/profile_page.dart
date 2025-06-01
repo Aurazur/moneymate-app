@@ -189,8 +189,8 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => Scaffold(
           appBar: AppBar(
             title: const Text('Edit Profile'),
-            elevation: 0, // Remove AppBar shadow / grey bar
-            leading: BackButton(), // Back arrow automatically pops the screen
+            elevation: 0,
+            leading: BackButton(),
           ),
           body: Padding(
             padding: EdgeInsets.only(
@@ -358,7 +358,7 @@ class _ProfilePageState extends State<ProfilePage> {
 class HelpAndSupportPage extends StatelessWidget {
   const HelpAndSupportPage({Key? key}) : super(key: key);
 
-  final String appVersion = '1.0.0'; // Replace with your actual app version
+  final String appVersion = '1.0.0';
 
   @override
   Widget build(BuildContext context) {

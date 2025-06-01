@@ -77,7 +77,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 final allDocs = snapshot.data!.docs;
 
-                // Group transactions by month-year
                 Map<String, List<DocumentSnapshot>> grouped = {};
                 Set<String> allMonths = {};
 

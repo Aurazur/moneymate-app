@@ -61,8 +61,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
     final allMonths = {...incomeByMonth.keys, ...expenseByMonth.keys}.toList()
       ..sort((a, b) => DateFormat('MMM yyyy')
           .parse(b)
-          .compareTo(DateFormat('MMM yyyy').parse(a))); // latest first
-
+          .compareTo(DateFormat('MMM yyyy').parse(a)));
     final chartData = allMonths.map((month) {
       return FinancialData(
         month,

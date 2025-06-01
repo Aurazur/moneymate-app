@@ -40,10 +40,8 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     final newName = _nameController.text.trim();
     if (newName.isEmpty || _user == null) return;
 
-    // Update Firebase Auth
     await _user!.updateDisplayName(newName);
 
-    // Update Firestore
     await FirebaseFirestore.instance
         .collection('users')
         .doc(_user!.uid)

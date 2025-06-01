@@ -17,7 +17,6 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _error;
 
   Future<void> _register() async {
-    // Validate phone number
     if (_phoneController.text.isEmpty || !_phoneController.text.trim().contains(RegExp(r'^\d{6,}$'))) {
       setState(() {
         _error = 'Enter a valid phone number';
@@ -25,7 +24,6 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    // Check passwords match
     if (_passwordController.text != _confirmPasswordController.text) {
       setState(() {
         _error = 'Passwords do not match';
@@ -34,7 +32,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     try {
-      // Create user with email and password
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -42,7 +39,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
       final user = userCredential.user;
       if (user != null) {
-        // Save user profile info to Firestore BEFORE sign out
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'displayName': _usernameController.text.trim(),
           'defaultCurrency': 'MYR',
@@ -56,10 +52,8 @@ class _RegisterPageState extends State<RegisterPage> {
           'assignedConsultant': null,
         });
 
-        // Send email verification
         await user.sendEmailVerification();
 
-        // Show a dialog asking user to verify email
         await showDialog(
           context: context,
           barrierDismissible: false,
@@ -79,10 +73,8 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         );
 
-        // Sign out immediately so user can't access app until verification
         await FirebaseAuth.instance.signOut();
 
-        // Navigate back to login page or wherever you want
         Navigator.pushReplacementNamed(context, '/login');
       }
     } catch (e) {

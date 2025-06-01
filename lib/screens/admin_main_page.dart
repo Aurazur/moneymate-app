@@ -209,7 +209,6 @@ class _UserListPageState extends State<UserListPage> {
 
                           String? selectedConsultant = userDoc['assignedConsultant'];
 
-                          // Make sure the current assigned consultant is in the dropdown list
                           final consultantEmails = consultants.map((doc) => doc['email'] as String).toList();
                           if (selectedConsultant != null && !consultantEmails.contains(selectedConsultant)) {
                             selectedConsultant = null;

@@ -9,12 +9,10 @@ class ConsultantChatPage extends StatelessWidget {
   static Future<void> _openWhatsApp(String phoneNumber) async {
     final cleanedPhone = phoneNumber.replaceAll('+', '').replaceAll(' ', '');
 
-    // Android intent URL to launch WhatsApp directly
     final androidUrl = Uri.parse(
       "intent://send?phone=$cleanedPhone#Intent;scheme=smsto;package=com.whatsapp;end"
     );
 
-    // Fallback to regular wa.me URL
     final fallbackUrl = Uri.parse("https://wa.me/$cleanedPhone");
 
     try {
@@ -28,7 +26,6 @@ class ConsultantChatPage extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('Error launching WhatsApp: $e');
-      // Optionally show a message or handle error here
     }
   }
 
